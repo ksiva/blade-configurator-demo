@@ -1,0 +1,94 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Blade configurator demo</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#f1efea;--ink:#2a2622;--mut:#6f675e;--line:#d9d4ca;--on:#2a2622}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+#c{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
+.ui{position:fixed;left:0;right:0;bottom:0;padding:14px 16px calc(14px + env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:10px 22px;justify-content:center;pointer-events:none}
+.g{pointer-events:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}.g b{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;margin-right:4px}
+button{font:inherit;padding:9px 14px;min-height:40px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;cursor:pointer}button[aria-pressed=true]{background:var(--on);border-color:var(--on);color:#fff}
+#load{position:fixed;inset:0;display:grid;place-items:center;color:var(--mut);background:var(--bg);transition:opacity .4s}
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script></head>
+<body><canvas id="c"></canvas><div id="load">Loading the blade</div>
+<div class="ui"><div class="g"><b>Handle</b><button data-h="1" aria-pressed="true">Ebony</button><button data-h="2" aria-pressed="false">Padauk stripes</button></div>
+<div class="g"><b>View</b><button data-v="front">Front</button><button data-v="back">Back</button><button data-v="edge">Edge</button><button data-v="handle">Handle</button><button data-v="butt">Handle end</button></div></div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from './vendor/OrbitControls.js';
+import {RoomEnvironment} from './vendor/RoomEnvironment.js';
+const q=new URLSearchParams(location.hash.slice(1));const still=q.has('view');
+const cv=document.getElementById('c');
+const r=new THREE.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true});
+r.setPixelRatio(Math.min(devicePixelRatio,2));r.toneMapping=THREE.NeutralToneMapping;
+const sc=new THREE.Scene();sc.background=new THREE.Color(0xf1efea);
+sc.environment=new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(),.04).texture;sc.environmentIntensity=.72;
+const cam=new THREE.PerspectiveCamera(24,1,5,4000);sc.add(cam);
+const key=new THREE.DirectionalLight(0xfff6ea,.85);key.position.set(60,80,200);cam.add(key);cam.add(key.target);key.target.position.set(0,0,-300);
+const ctl=new OrbitControls(cam,cv);ctl.enableDamping=true;ctl.dampingFactor=.08;ctl.enablePan=false;ctl.minDistance=70;ctl.maxDistance=1100;ctl.minPolarAngle=0;ctl.maxPolarAngle=Math.PI;
+const tl=new THREE.TextureLoader(),A=r.capabilities.getMaxAnisotropy();
+const T=async(n,c=1)=>{const t=await tl.loadAsync('tex/'+n+'.jpg');t.colorSpace=c?THREE.SRGBColorSpace:THREE.NoColorSpace;t.anisotropy=A;return t};
+const [ft,fn,bt,bn,h1f,h1fn,h1b,h1bn,h2,h2n,b1,b2,ed,M]=await Promise.all([T('front'),T('front_n',0),T('back'),T('back_n',0),T('h1f'),T('h1f_n',0),T('h1b'),T('h1b_n',0),T('h2'),T('h2_n',0),T('b1'),T('b2'),T('edge'),fetch('mesh.json').then(x=>x.json())]);
+ed.wrapS=THREE.RepeatWrapping;
+const pm=(map,nm,rough,cc=0,ns=.5,sp=.5)=>new THREE.MeshPhysicalMaterial({map,normalMap:nm||null,normalScale:new THREE.Vector2(ns,ns),roughness:rough,clearcoat:cc,clearcoatRoughness:.5,specularIntensity:sp});
+const mat={front:pm(ft,fn,.48,.06),back:pm(bt,bn,.48,.06),edge:pm(ed,null,.62),h1f:pm(h1f,h1fn,.62,0,.6,.3),h1b:pm(h1b,h1bn,.62,0,.6,.3),h2:pm(h2,h2n,.56,0,.7,.4),b1:pm(b1,null,.6),b2:pm(b2,null,.66)};
+const g=new THREE.Group();sc.add(g);g.position.y=-129;
+function build(m,kind){
+  const P=m.position,N=m.normal,I=m.index,hd=kind!=='blade';
+  const cr=new Float32Array(60);
+  if(hd)for(let i=0;i<P.length;i+=3){const b=Math.min(59,Math.round(P[i+1]/2));cr[b]=Math.max(cr[b],Math.abs(P[i+2]));}
+  for(let i=1;i<60;i++)if(!cr[i])cr[i]=cr[i-1];
+  const crown=y=>{const f=y/2,a=Math.min(59,Math.floor(f)),b=Math.min(59,a+1);return cr[a]+(cr[b]-cr[a])*(f-a)};
+  const buckets=hd?[[],[]]:[[],[],[],[]];
+  for(let t=0;t<I.length;t+=3){
+    let nz=0,ny=0,y=0;for(let k=0;k<3;k++){const v=I[t+k];nz+=N[v*3+2]/3;ny+=N[v*3+1]/3;y+=P[v*3+1]/3}
+    const isButt=ny<-.7&&y<3;
+    buckets[hd?(isButt?1:0):(isButt?3:nz>.9?0:nz<-.9?1:2)].push(t);
+  }
+  const pos=[],nor=[],uv=[],geo=new THREE.BufferGeometry();let n0=0;
+  buckets.forEach((b,gi)=>{
+    for(const t of b)for(let k=0;k<3;k++){
+      const v=I[t+k],x=P[v*3],y=P[v*3+1],z=P[v*3+2];
+      pos.push(x,y,z);nor.push(N[v*3],N[v*3+1],N[v*3+2]);
+      if(hd){
+        if(gi===1)uv.push((x+17.94)/35.88,(z+13)/26);
+        else{const d=Math.max(0,crown(y)-Math.abs(z));uv.push((x+Math.sign(x)*d+32)/64,y/104)}
+      }else if(gi===3)uv.push((x+17.94)/35.88,(z+13)/26);
+      else if(gi===2)uv.push(Math.atan2(x,y-175)*105/400,(z+3)/6);
+      else uv.push((x+75.5)/151,y/258);
+    }
+    geo.addGroup(n0,b.length*3,gi);n0+=b.length*3;
+  });
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  geo.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
+  geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  return geo;
+}
+const blade=new THREE.Mesh(build(M[0],'blade'),[mat.front,mat.back,mat.edge,mat.b1]);g.add(blade);
+const hf=new THREE.Mesh(build(M[1],'front'),[mat.h1f,mat.b1]),hb=new THREE.Mesh(build(M[2],'back'),[mat.h1b,mat.b1]);g.add(hf,hb);
+function setHandle(n){
+  const w=n==2;hf.material=[w?mat.h2:mat.h1f,w?mat.b2:mat.b1];hb.material=[w?mat.h2:mat.h1b,w?mat.b2:mat.b1];blade.material[3]=w?mat.b2:mat.b1;
+  document.querySelectorAll('[data-h]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.h==n)));
+}
+const VIEWS={front:[[0,0,1],0,1],back:[[0,0,-1],0,1],edge:[[1,.02,.12],0,1],three:[[.5,.2,.85],0,1],handle:[[.42,.1,.9],-78,.42],butt:[[.22,-1,.42],-120,.3]};
+const fit=()=>{const w=innerWidth,h=innerHeight;r.setSize(w,h,false);cam.aspect=w/h;const pad=document.querySelector('.ui').offsetHeight/2;cam.setViewOffset(w,h,0,still?0:pad,w,h);cam.updateProjectionMatrix();};
+const dist=s=>{const tn=2*Math.tan(cam.fov*Math.PI/360);return Math.max(285/tn,175/(tn*cam.aspect))*s};
+let tw=null;
+function go(v,now){
+  const [d,ty,s]=VIEWS[v],t=new THREE.Vector3(0,ty,0),p=new THREE.Vector3(...d).normalize().multiplyScalar(dist(s)).add(t);
+  if(now){cam.position.copy(p);ctl.target.copy(t);ctl.update();return}
+  tw={p0:cam.position.clone(),t0:ctl.target.clone(),p,t,s:performance.now()};
+}
+addEventListener('resize',fit);fit();
+document.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>setHandle(b.dataset.h));
+document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
+setHandle(q.get('h')||1);go(q.get('view')||'three',true);
+const ld=document.getElementById('load');ld.style.opacity=0;setTimeout(()=>ld.remove(),450);
+if(still){document.querySelector('.ui').style.display='none';ld.remove();}
+ctl.addEventListener('start',()=>tw=null);
+r.setAnimationLoop(()=>{
+  if(tw){const k=Math.min(1,(performance.now()-tw.s)/650),e=k*k*(3-2*k);cam.position.lerpVectors(tw.p0,tw.p,e);ctl.target.lerpVectors(tw.t0,tw.t,e);if(k==1)tw=null}
+  ctl.update();r.render(sc,cam);
+});
+</script></body></html>
