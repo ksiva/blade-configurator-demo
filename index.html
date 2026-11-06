@@ -32,7 +32,7 @@ const T=async(n,c=1)=>{const t=await tl.loadAsync('tex/'+n+'.jpg');t.colorSpace=
 const [ft,fn,bt,bn,h1f,h1fn,h1b,h1bn,h2,h2n,h2b,h2bn,tg,b1,b2,ed,M]=await Promise.all([T('front'),T('front_n',0),T('back'),T('back_n',0),T('h1f'),T('h1f_n',0),T('h1b'),T('h1b_n',0),T('h2'),T('h2_n',0),T('h2b'),T('h2b_n',0),T('tang'),T('b1'),T('b2'),T('edge'),fetch('mesh.json').then(x=>x.json())]);
 ed.wrapS=THREE.RepeatWrapping;
 const pm=(map,nm,rough,cc=0,ns=.5,sp=.5)=>new THREE.MeshPhysicalMaterial({map,normalMap:nm||null,normalScale:new THREE.Vector2(ns,ns),roughness:rough,clearcoat:cc,clearcoatRoughness:.5,specularIntensity:sp});
-const mat={front:pm(ft,fn,.48,.06),back:pm(bt,bn,.48,.06),edge:pm(ed,null,.62),h1f:pm(h1f,h1fn,.62,0,.6,.3),h1b:pm(h1b,h1bn,.62,0,.6,.3),h2:pm(h2,h2n,.42,.12,.35,.5),h2b:pm(h2b,h2bn,.42,.12,.35,.5),tang:pm(tg,null,.42,.12),b1:pm(b1,null,.6),b2:pm(b2,null,.66)};
+const mat={front:pm(ft,fn,.48,.06),back:pm(bt,bn,.48,.06),edge:pm(ed,null,.62),h1f:pm(h1f,h1fn,.62,0,.6,.3),h1b:pm(h1b,h1bn,.62,0,.6,.3),h2:pm(h2,h2n,.38,.2,.28,.6),h2b:pm(h2b,h2bn,.38,.2,.28,.6),tang:pm(tg,null,.38,.2),b1:pm(b1,null,.6),b2:pm(b2,null,.66)};
 const g=new THREE.Group();sc.add(g);g.position.y=-129;
 function build(m,kind){
   const P=m.position,N=m.normal,I=m.index,hd=kind!=='blade';
