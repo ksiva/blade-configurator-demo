@@ -1,112 +1,522 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Blade configurator demo</title>
-<meta name="robots" content="noindex">
-<style>
-:root{--bg:#f1efea;--ink:#2a2622;--mut:#6f675e;--line:#d9d4ca;--on:#2a2622}
-*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
-#c{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
-.ui{position:fixed;left:0;right:0;bottom:0;padding:14px 16px calc(14px + env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:10px 22px;justify-content:center;pointer-events:none}
-.g{pointer-events:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}.g b{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;margin-right:4px}
-button{font:inherit;padding:9px 14px;min-height:40px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;cursor:pointer}button[aria-pressed=true]{background:var(--on);border-color:var(--on);color:#fff}
-#load{position:fixed;inset:0;display:grid;place-items:center;color:var(--mut);background:var(--bg);transition:opacity .4s}
-</style>
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script></head>
-<body><canvas id="c"></canvas><div id="load">Loading the blade</div>
-<div class="ui"><div class="g"><b>Handle</b><button data-h="1" aria-pressed="true">Ebony</button><button data-h="2" aria-pressed="false">Padauk stripes</button></div>
-<div class="g"><b>View</b><button data-v="front">Front</button><button data-v="back">Back</button><button data-v="edge">Edge</button><button data-v="handle">Handle</button><button data-v="butt">Handle end</button></div></div>
-<script type="module">
-import * as THREE from 'three';
-import {OrbitControls} from './vendor/OrbitControls.js';
-import {RoomEnvironment} from './vendor/RoomEnvironment.js';
-const q=new URLSearchParams(location.hash.slice(1));const still=q.has('view');
-const cv=document.getElementById('c');
-const r=new THREE.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true});
-r.setPixelRatio(Math.min(devicePixelRatio,2));r.toneMapping=THREE.NeutralToneMapping;
-const sc=new THREE.Scene();sc.background=new THREE.Color(0xf1efea);
-sc.environment=new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(),.04).texture;sc.environmentIntensity=.72;
-const cam=new THREE.PerspectiveCamera(24,1,5,4000);sc.add(cam);
-const key=new THREE.DirectionalLight(0xfff6ea,.85);key.position.set(60,80,200);cam.add(key);cam.add(key.target);key.target.position.set(0,0,-300);
-const ctl=new OrbitControls(cam,cv);ctl.enableDamping=true;ctl.dampingFactor=.08;ctl.enablePan=false;ctl.minDistance=70;ctl.maxDistance=1100;ctl.minPolarAngle=0;ctl.maxPolarAngle=Math.PI;
-const tl=new THREE.TextureLoader(),A=r.capabilities.getMaxAnisotropy();
-const T=async(n,c=1)=>{const t=await tl.loadAsync('tex/'+n+'.jpg');t.colorSpace=c?THREE.SRGBColorSpace:THREE.NoColorSpace;t.anisotropy=A;return t};
-const [ft,fn,bt,bn,h1f,h1fn,h1b,h1bn,h2,h2n,h2b,h2bn,tg,b1,b2,ed,M]=await Promise.all([T('front'),T('front_n',0),T('back'),T('back_n',0),T('h1f'),T('h1f_n',0),T('h1b'),T('h1b_n',0),T('h2'),T('h2_n',0),T('h2b'),T('h2b_n',0),T('tang'),T('b1'),T('b2'),T('edge'),fetch('mesh.json').then(x=>x.json())]);
-ed.wrapS=THREE.RepeatWrapping;
-const pm=(map,nm,rough,cc=0,ns=.5,sp=.5)=>new THREE.MeshPhysicalMaterial({map,normalMap:nm||null,normalScale:new THREE.Vector2(ns,ns),roughness:rough,clearcoat:cc,clearcoatRoughness:.5,specularIntensity:sp});
-const mat={front:pm(ft,fn,.48,.06),back:pm(bt,bn,.48,.06),edge:pm(ed,null,.62),h1f:pm(h1f,h1fn,.62,0,.6,.3),h1b:pm(h1b,h1bn,.62,0,.6,.3),h2:pm(h2,h2n,.38,.2,.28,.6),h2b:pm(h2b,h2bn,.38,.2,.28,.6),tang:pm(tg,null,.38,.2),b1:pm(b1,null,.6),b2:pm(b2,null,.66)};
-const g=new THREE.Group();sc.add(g);g.position.y=-129;
-function build(m,kind){
-  const P=m.position,N=m.normal,I=m.index,hd=kind!=='blade';
-  const cr=new Float32Array(60);
-  if(hd)for(let i=0;i<P.length;i+=3){const b=Math.min(59,Math.round(P[i+1]/2));cr[b]=Math.max(cr[b],Math.abs(P[i+2]));}
-  for(let i=1;i<60;i++)if(!cr[i])cr[i]=cr[i-1];
-  const crown=y=>{const f=y/2,a=Math.min(59,Math.floor(f)),b=Math.min(59,a+1);return cr[a]+(cr[b]-cr[a])*(f-a)};
-  const buckets=hd?[[],[]]:[[],[],[],[]];
-  for(let t=0;t<I.length;t+=3){
-    let nz=0,ny=0,y=0;for(let k=0;k<3;k++){const v=I[t+k];nz+=N[v*3+2]/3;ny+=N[v*3+1]/3;y+=P[v*3+1]/3}
-    const isButt=ny<-.7&&y<3;
-    buckets[hd?(isButt?1:0):(isButt?3:nz>.9?0:nz<-.9?1:2)].push(t);
-  }
-  const pos=[],nor=[],uv=[],geo=new THREE.BufferGeometry();let n0=0;
-  buckets.forEach((b,gi)=>{
-    for(const t of b)for(let k=0;k<3;k++){
-      const v=I[t+k],x=P[v*3],y=P[v*3+1],z=P[v*3+2];
-      pos.push(x,y,z);nor.push(N[v*3],N[v*3+1],N[v*3+2]);
-      if(hd){
-        if(gi===1)uv.push((x+17.94)/35.88,(z+13)/26);
-        else{const d=Math.max(0,crown(y)-Math.abs(z));uv.push((x+Math.sign(x)*d+32)/64,y/104)}
-      }else if(gi===3)uv.push((x+17.94)/35.88,(z+13)/26);
-      else if(gi===2)uv.push(Math.atan2(x,y-175)*105/400,(z+3)/6);
-      else uv.push((x+75.5)/151,y/258);
-    }
-    geo.addGroup(n0,b.length*3,gi);n0+=b.length*3;
-  });
-  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-  geo.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));
-  geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
-  return geo;
-}
-const blade=new THREE.Mesh(build(M[0],'blade'),[mat.front,mat.back,mat.edge,mat.b1]);g.add(blade);
-const hf=new THREE.Mesh(build(M[1],'front'),[mat.h1f,mat.b1]),hb=new THREE.Mesh(build(M[2],'back'),[mat.h1b,mat.b1]);g.add(hf,hb);
-function tangStrip(m){
-  const P=m.position,N=m.normal,I=m.index,pos=[],nor=[],uv=[];
-  for(let t=0;t<I.length;t+=3){
-    let nz=0,ny=0,y=1e9;for(let k=0;k<3;k++){const v=I[t+k];nz+=N[v*3+2]/3;ny+=N[v*3+1]/3;y=Math.min(y,P[v*3+1])}
-    if(Math.abs(nz)>.9||y>=102||(ny<-.7&&y<3))continue;
-    for(let k=0;k<3;k++){const v=I[t+k];pos.push(P[v*3],P[v*3+1],P[v*3+2]);nor.push(N[v*3],N[v*3+1],N[v*3+2]);uv.push((P[v*3+2]+3)/6,P[v*3+1]/104)}
-  }
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
-  return geo;
-}
-mat.tang.polygonOffset=true;mat.tang.polygonOffsetFactor=-2;mat.tang.polygonOffsetUnits=-2;
-mat.tang.onBeforeCompile=s=>{
-  s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vLocal;').replace('#include <begin_vertex>','#include <begin_vertex>\nvLocal=position;');
-  s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vLocal;\n').replace('#include <clipping_planes_fragment>',`#include <clipping_planes_fragment>
-    if(vLocal.y>80.||abs(vLocal.x)>18.)discard;`);
-};
-const tang=new THREE.Mesh(tangStrip(M[0]),mat.tang);tang.visible=false;g.add(tang);
-function setHandle(n){
-  const w=n==2;hf.material=[w?mat.h2:mat.h1f,w?mat.b2:mat.b1];hb.material=[w?mat.h2b:mat.h1b,w?mat.b2:mat.b1];blade.material[3]=w?mat.b2:mat.b1;tang.visible=w;
-  document.querySelectorAll('[data-h]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.h==n)));
-}
-const VIEWS={front:[[0,0,1],0,1],back:[[0,0,-1],0,1],edge:[[1,.02,.12],0,1],three:[[.5,.2,.85],0,1],handle:[[.42,.1,.9],-78,.42],butt:[[.22,-1,.42],-120,.3]};
-const fit=()=>{const w=innerWidth,h=innerHeight;r.setSize(w,h,false);cam.aspect=w/h;const pad=document.querySelector('.ui').offsetHeight/2;cam.setViewOffset(w,h,0,still?0:pad,w,h);cam.updateProjectionMatrix();};
-const dist=s=>{const tn=2*Math.tan(cam.fov*Math.PI/360);return Math.max(285/tn,175/(tn*cam.aspect))*s};
-let tw=null;
-function go(v,now){
-  const [d,ty,s]=VIEWS[v],t=new THREE.Vector3(0,ty,0),p=new THREE.Vector3(...d).normalize().multiplyScalar(dist(s)).add(t);
-  if(now){cam.position.copy(p);ctl.target.copy(t);ctl.update();return}
-  tw={p0:cam.position.clone(),t0:ctl.target.clone(),p,t,s:performance.now()};
-}
-addEventListener('resize',fit);fit();
-document.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>setHandle(b.dataset.h));
-document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
-setHandle(q.get('h')||1);go(q.get('view')||'three',true);
-const ld=document.getElementById('load');ld.style.opacity=0;setTimeout(()=>ld.remove(),450);
-if(still){document.querySelector('.ui').style.display='none';ld.remove();}
-ctl.addEventListener('start',()=>tw=null);
-r.setAnimationLoop(()=>{
-  if(tw){const k=Math.min(1,(performance.now()-tw.s)/650),e=k*k*(3-2*k);cam.position.lerpVectors(tw.p0,tw.p,e);ctl.target.lerpVectors(tw.t0,tw.t,e);if(k==1)tw=null}
-  ctl.update();r.render(sc,cam);
-});
-</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Resonant - Blade Configurator</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <img src="assets/medallion.jpg" alt="Resonant medallion" class="brand-medallion">
+      <span class="brand-name">Resonant</span>
+    </div>
+    <a href="proposal.html" class="topbar-link">Full Proposal &rarr;</a>
+  </header>
+
+  <!-- Full-Window Stage & Layout -->
+  <main class="main-stage-layout">
+
+    <!-- 3D Stage Viewport -->
+    <section class="stage-container" aria-label="3D Blade Viewport">
+
+      <!-- Concentric Graphic Rings Background -->
+      <svg class="stage-rings" viewBox="0 0 1000 1000" aria-hidden="true">
+        <circle cx="500" cy="560" r="100" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+        <circle cx="500" cy="560" r="180" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+        <circle cx="500" cy="560" r="260" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+        <circle cx="500" cy="560" r="340" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+        <circle cx="500" cy="560" r="420" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+        <circle cx="500" cy="560" r="500" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+      </svg>
+
+      <!-- Resonance Pulse Layer -->
+      <div class="resonance-pulse-origin" id="resonancePulse" aria-hidden="true"></div>
+
+      <!-- Stage Viewport (Supports 50/50 Split for Photo Comparison) -->
+      <div class="stage-viewport" id="stageViewport">
+
+        <!-- Split Photo Pane (Left Half in Comparison Mode) -->
+        <div class="split-photo-pane" id="splitPhotoPane" aria-hidden="true">
+          <div class="split-badge">Your photo</div>
+          <img id="comparisonPhoto" src="assets/photo-handle1.jpg" alt="Client reference handle photo" class="split-img">
+          <button type="button" class="btn-close-split" id="btnCloseComparison" aria-label="Close photo comparison">&times; Close</button>
+        </div>
+
+        <!-- 3D Canvas Pane -->
+        <div class="split-canvas-pane" id="canvasPane">
+          <div class="split-badge canvas-badge" id="canvasBadge" style="display: none;">3D</div>
+          <canvas id="c" tabindex="0" aria-label="Interactive 3D model of table tennis blade"></canvas>
+          <div id="labels"></div>
+        </div>
+
+      </div>
+
+      <!-- Compare with Your Photo Button (Desktop Only) -->
+      <button type="button" class="btn-compare-stage" id="btnComparePhoto">
+        <span>Compare with your photo</span>
+      </button>
+
+      <!-- Bottom Center: Large Live Price & Weight Gauge -->
+      <div class="stage-gauge-group" id="stagePriceGroup" aria-live="polite">
+        <div class="stage-price-row">
+          <span class="stage-price-val tabular">&euro;<span id="displayPrice">191</span></span>
+          <span class="stage-sample-tag">sample</span>
+        </div>
+        <div class="stage-weight-row">
+          <span class="stage-weight-val tabular" id="displayWeight">Estimated weight 93 g</span>
+        </div>
+        <!-- Horizontal Weight Gauge showing ±5 g band around estimate -->
+        <div class="weight-gauge-wrap" title="Estimated weight with ±5 g tolerance band">
+          <div class="weight-gauge-track">
+            <div class="weight-gauge-band"></div>
+            <div class="weight-gauge-center"></div>
+          </div>
+          <span class="weight-gauge-label">&plusmn;5 g band (sample)</span>
+        </div>
+      </div>
+
+      <!-- Understated Dark Views Toolbar -->
+      <nav class="stage-toolbar" aria-label="Camera viewpoints and tools">
+        <button type="button" class="view-btn active" data-view="three">3/4</button>
+        <button type="button" class="view-btn" data-view="front">Front</button>
+        <button type="button" class="view-btn" data-view="back">Back</button>
+        <button type="button" class="view-btn" data-view="edge">Edge</button>
+        <button type="button" class="view-btn" data-view="handle">Handle</button>
+        <button type="button" class="view-btn" data-view="butt">Handle end</button>
+        <span class="toolbar-sep" role="separator"></span>
+        <button type="button" class="view-btn toggle-btn" id="btnLayers" data-view="layers">Layers</button>
+        <button type="button" class="view-btn toggle-btn" id="btnSpin" data-view="spin">Spin</button>
+      </nav>
+
+      <!-- Loading State Overlay -->
+      <div class="stage-loader" id="stageLoader" aria-live="polite">
+        <div class="loader-inner">
+          <div class="loader-rings">
+            <span class="loader-dot"></span>
+          </div>
+          <div class="loader-brand">RESONANT</div>
+          <div class="loader-bar-wrap">
+            <div class="loader-bar" id="loaderBar"></div>
+          </div>
+          <div class="loader-text" id="loaderText">Loading 0%</div>
+        </div>
+      </div>
+
+      <!-- Error Fallback -->
+      <div class="stage-error" id="stageError" role="alert">
+        <div class="stage-error-title">Viewer unavailable</div>
+        <div class="stage-error-desc">
+          Unable to initialize the 3D viewer. Please verify that hardware acceleration and WebGL are enabled in your browser.
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Ring Rail (Vertical on Desktop, Horizontal on Mobile) -->
+    <nav class="ring-rail" aria-label="Configurator steps">
+      <div class="rail-line" aria-hidden="true"></div>
+      <button type="button" class="rail-item active" data-step="0" id="railStep0" aria-label="Step 1: Blade">
+        <span class="rail-marker"><span class="rail-dot"></span></span>
+        <span class="rail-name">Blade</span>
+      </button>
+      <button type="button" class="rail-item" data-step="1" id="railStep1" aria-label="Step 2: Handle">
+        <span class="rail-marker"><span class="rail-dot"></span></span>
+        <span class="rail-name">Handle</span>
+      </button>
+      <button type="button" class="rail-item" data-step="2" id="railStep2" aria-label="Step 3: Inside">
+        <span class="rail-marker"><span class="rail-dot"></span></span>
+        <span class="rail-name">Inside</span>
+      </button>
+      <button type="button" class="rail-item" data-step="3" id="railStep3" aria-label="Step 4: Finish">
+        <span class="rail-marker"><span class="rail-dot"></span></span>
+        <span class="rail-name">Finish</span>
+      </button>
+      <button type="button" class="rail-item" data-step="4" id="railStep4" aria-label="Step 5: Personal">
+        <span class="rail-marker"><span class="rail-dot"></span></span>
+        <span class="rail-name">Personal</span>
+      </button>
+      <button type="button" class="rail-item" data-step="5" id="railStep5" aria-label="Step 6: Your blade">
+        <span class="rail-marker"><span class="rail-dot"></span></span>
+        <span class="rail-name">Your blade</span>
+      </button>
+    </nav>
+
+    <!-- Floating Enamel Card (Shows Only Current Step) -->
+    <aside class="enamel-card" id="enamelCard" aria-label="Configuration card">
+
+      <!-- Step 0: Blade -->
+      <div class="step-pane active" id="paneStep0" data-step="0">
+        <header class="step-head">
+          <span class="step-tag">Step 1 of 6</span>
+          <h1 class="step-title">Blade</h1>
+          <p class="step-desc">Fixed size and layers for each model.</p>
+        </header>
+
+        <div class="step-body">
+          <div class="compact-group">
+            <span class="group-label">Blade model</span>
+            <div class="compact-list" role="radiogroup" aria-label="Blade model">
+              <label class="compact-row selected">
+                <input type="radio" name="model" value="palis" checked>
+                <span class="row-left">
+                  <span class="radio-indicator"></span>
+                  <span class="row-name">PALIS</span>
+                </span>
+                <span class="row-right tabular">&euro;150 sample</span>
+              </label>
+              <div class="compact-row locked">
+                <span class="row-left">
+                  <span class="radio-indicator disabled"></span>
+                  <span class="row-name">OPUS 1</span>
+                </span>
+                <span class="row-note">Needs your Fusion 360 file</span>
+              </div>
+              <div class="compact-row locked">
+                <span class="row-left">
+                  <span class="radio-indicator disabled"></span>
+                  <span class="row-name">WAVE C</span>
+                </span>
+                <span class="row-note">Needs your Fusion 360 file</span>
+              </div>
+              <div class="compact-row locked">
+                <span class="row-left">
+                  <span class="radio-indicator disabled"></span>
+                  <span class="row-name">PULSE C</span>
+                </span>
+                <span class="row-note">Needs your Fusion 360 file</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="compact-group">
+            <span class="group-label">Handle shape</span>
+            <div class="compact-list" role="radiogroup" aria-label="Handle shape">
+              <label class="compact-row selected">
+                <input type="radio" name="shape" value="flared" checked>
+                <span class="row-left">
+                  <span class="radio-indicator"></span>
+                  <span class="row-name">Flared</span>
+                </span>
+                <span class="row-right">Active</span>
+              </label>
+              <div class="compact-row locked">
+                <span class="row-left">
+                  <span class="radio-indicator disabled"></span>
+                  <span class="row-name">Straight</span>
+                </span>
+                <span class="row-note">Needs your Fusion 360 file</span>
+              </div>
+              <div class="compact-row locked">
+                <span class="row-left">
+                  <span class="radio-indicator disabled"></span>
+                  <span class="row-name">Anatomical</span>
+                </span>
+                <span class="row-note">Needs your Fusion 360 file</span>
+              </div>
+              <div class="compact-row locked">
+                <span class="row-left">
+                  <span class="radio-indicator disabled"></span>
+                  <span class="row-name">Penhold</span>
+                </span>
+                <span class="row-note">Needs your Fusion 360 file</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 1: Handle -->
+      <div class="step-pane" id="paneStep1" data-step="1">
+        <header class="step-head">
+          <span class="step-tag">Step 2 of 6</span>
+          <h2 class="step-title">Handle design</h2>
+          <p class="step-desc">Aligned from your photography.</p>
+        </header>
+
+        <div class="step-body">
+          <div class="handle-cards" role="radiogroup" aria-label="Handle design">
+            <label class="handle-card selected" id="cardHandle1">
+              <input type="radio" name="handle" value="1" checked>
+              <span class="swatch swatch-h1" aria-hidden="true"></span>
+              <span class="handle-card-info">
+                <span class="handle-card-top">
+                  <span class="handle-card-name">Handle 1</span>
+                  <span class="handle-card-price tabular">+&euro;25 &bull; 12 g</span>
+                </span>
+                <span class="handle-card-desc">Dark wood, PALIS / OFF label</span>
+              </span>
+            </label>
+
+            <label class="handle-card" id="cardHandle2">
+              <input type="radio" name="handle" value="2">
+              <span class="swatch swatch-h2" aria-hidden="true"></span>
+              <span class="handle-card-info">
+                <span class="handle-card-top">
+                  <span class="handle-card-name">Handle 2</span>
+                  <span class="handle-card-price tabular">+&euro;40 &bull; 14 g</span>
+                </span>
+                <span class="handle-card-desc">Padauk with light stripes, oak end cap</span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Inside -->
+      <div class="step-pane" id="paneStep2" data-step="2">
+        <header class="step-head">
+          <span class="step-tag">Step 3 of 6</span>
+          <h2 class="step-title">Inside structure</h2>
+          <p class="step-desc">Alters weight and resonance.</p>
+        </header>
+
+        <div class="step-body">
+          <!-- Sample Rule Alert -->
+          <div class="rule-alert" id="ruleAlert" role="status">
+            <span class="rule-alert-dot">&bull;</span>
+            <span id="ruleAlertText"></span>
+          </div>
+
+          <div class="compact-list" role="radiogroup" aria-label="Internal structure">
+            <label class="compact-row selected" id="optStructureSolid">
+              <input type="radio" name="structure" value="solid" checked>
+              <span class="row-left">
+                <span class="radio-indicator"></span>
+                <span class="row-name">Solid</span>
+                <span class="row-sub">Heavy</span>
+              </span>
+              <span class="row-right tabular">+&euro;0 &bull; +8 g</span>
+            </label>
+
+            <label class="compact-row" id="optStructurePartial">
+              <input type="radio" name="structure" value="partial">
+              <span class="row-left">
+                <span class="radio-indicator"></span>
+                <span class="row-name">Partly hollow</span>
+                <span class="row-sub">Medium</span>
+              </span>
+              <span class="row-right tabular">+&euro;15 &bull; +4 g</span>
+            </label>
+
+            <label class="compact-row" id="optStructureMax">
+              <input type="radio" name="structure" value="max">
+              <span class="row-left">
+                <span class="radio-indicator"></span>
+                <span class="row-name">Max hollow</span>
+                <span class="row-sub">Light</span>
+                <span class="row-rule-msg" id="maxHollowReason" style="display: none;">Not available with Handle 2 (sample rule)</span>
+              </span>
+              <span class="row-right tabular">+&euro;30 &bull; +0 g</span>
+            </label>
+          </div>
+
+          <div class="layers-callout">
+            <button type="button" class="btn-subtle-action" id="btnSeeInLayers">
+              <span>See it in Layers &rarr;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Finish -->
+      <div class="step-pane" id="paneStep3" data-step="3">
+        <header class="step-head">
+          <span class="step-tag">Step 4 of 6</span>
+          <h2 class="step-title">Finish</h2>
+        </header>
+
+        <div class="step-body">
+          <div class="compact-list" role="radiogroup" aria-label="Finish">
+            <label class="compact-row selected" id="optFinishOiled">
+              <input type="radio" name="finish" value="oiled" checked>
+              <span class="row-left">
+                <span class="radio-indicator"></span>
+                <span class="row-name">Oiled</span>
+              </span>
+              <span class="row-right tabular">+&euro;10 &bull; 1 g</span>
+            </label>
+
+            <label class="compact-row" id="optFinishUntreated">
+              <input type="radio" name="finish" value="untreated">
+              <span class="row-left">
+                <span class="radio-indicator"></span>
+                <span class="row-name">Untreated</span>
+              </span>
+              <span class="row-right tabular">+&euro;0 &bull; 0 g</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Personal -->
+      <div class="step-pane" id="paneStep4" data-step="4">
+        <header class="step-head">
+          <span class="step-tag">Step 5 of 6</span>
+          <h2 class="step-title">Personal</h2>
+        </header>
+
+        <div class="step-body">
+          <!-- Flag -->
+          <div class="personal-item">
+            <label class="toggle-row">
+              <span class="toggle-left">
+                <span class="toggle-title">Flag on the handle</span>
+                <span class="toggle-cost tabular">+&euro;8 sample</span>
+              </span>
+              <span class="toggle-switch">
+                <input type="checkbox" id="toggleFlag" aria-label="Flag on the handle toggle">
+                <span class="toggle-slider"></span>
+              </span>
+            </label>
+            <div class="flag-picker" id="flagPicker" style="display: none;" role="radiogroup" aria-label="Country flag choice">
+              <button type="button" class="flag-btn selected" data-flag="ch" title="Switzerland">
+                <img src="assets/flag-ch.svg" alt="" class="flag-icon">
+                <span>CH</span>
+              </button>
+              <button type="button" class="flag-btn" data-flag="br" title="Brazil">
+                <img src="assets/flag-br.svg" alt="" class="flag-icon">
+                <span>BR</span>
+              </button>
+              <button type="button" class="flag-btn" data-flag="de" title="Germany">
+                <img src="assets/flag-de.svg" alt="" class="flag-icon">
+                <span>DE</span>
+              </button>
+              <button type="button" class="flag-btn" data-flag="fr" title="France">
+                <img src="assets/flag-fr.svg" alt="" class="flag-icon">
+                <span>FR</span>
+              </button>
+              <button type="button" class="flag-btn" data-flag="it" title="Italy">
+                <img src="assets/flag-it.svg" alt="" class="flag-icon">
+                <span>IT</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Plate -->
+          <div class="personal-item">
+            <label class="toggle-row">
+              <span class="toggle-left">
+                <span class="toggle-title">Model-name plate</span>
+                <span class="toggle-cost tabular">+&euro;6 sample</span>
+              </span>
+              <span class="toggle-switch">
+                <input type="checkbox" id="togglePlate" checked aria-label="Model-name plate toggle">
+                <span class="toggle-slider"></span>
+              </span>
+            </label>
+          </div>
+
+          <!-- Engraving -->
+          <div class="personal-item">
+            <label class="field-label" for="inputEngraving">
+              <span class="toggle-title">Engraving in the serial-number area</span>
+              <span class="toggle-cost tabular">+&euro;12 sample</span>
+            </label>
+            <div class="input-wrap">
+              <input type="text" id="inputEngraving" class="text-input" placeholder="CUSTOM TEXT" maxlength="12" autocomplete="off" spellcheck="false" aria-label="Engraving text up to 12 characters">
+              <span class="char-count" id="engravingCount">0/12</span>
+            </div>
+            <p class="field-hint">Blade face only, same style as your serial number.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5: Your blade (The Build Sheet) -->
+      <div class="step-pane" id="paneStep5" data-step="5">
+        <header class="step-head">
+          <span class="step-tag">Step 6 of 6</span>
+          <h2 class="step-title">Your blade</h2>
+          <p class="step-desc">The build sheet</p>
+        </header>
+
+        <div class="step-body">
+          <!-- Build Sheet Summary List -->
+          <div class="build-sheet-list" id="buildSheetList"></div>
+
+          <!-- Total in Build Sheet -->
+          <div class="build-sheet-total">
+            <span class="total-label">Total specification</span>
+            <div class="total-right">
+              <span class="total-price tabular" id="sheetPrice">&euro;191</span>
+              <span class="total-weight tabular" id="sheetWeight">93 g &plusmn; 5 g</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="build-actions">
+            <button type="button" class="btn-primary" id="btnAddToCart">Add to cart</button>
+            <button type="button" class="btn-secondary" id="btnCopyLink">
+              <span id="copyLinkIcon"></span>
+              <span id="copyLinkText">Copy configuration link</span>
+            </button>
+
+            <!-- Save Image Exporter -->
+            <div class="export-box">
+              <span class="export-title">Image export</span>
+              <div class="export-controls">
+                <div class="segment-group" role="radiogroup" aria-label="Image resolution">
+                  <button type="button" class="seg-btn selected" data-size="2048">2048 px</button>
+                  <button type="button" class="seg-btn" data-size="4096">4096 px</button>
+                </div>
+                <div class="segment-group" role="radiogroup" aria-label="Image background">
+                  <button type="button" class="seg-btn selected" data-bg="transparent">Transparent</button>
+                  <button type="button" class="seg-btn" data-bg="white">White</button>
+                </div>
+              </div>
+              <button type="button" class="btn-subtle-export" id="btnSaveImage">
+                <span>Save image (PNG)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Footer Navigation (Back and Next Buttons) -->
+      <footer class="card-footer">
+        <button type="button" class="card-nav-btn btn-back" id="btnCardBack" style="display: none;">&larr; Back</button>
+        <button type="button" class="card-nav-btn btn-next" id="btnCardNext">Next &rarr;</button>
+      </footer>
+
+    </aside>
+
+  </main>
+
+  <!-- Add to Cart Modal Sheet -->
+  <div class="modal-backdrop" id="cartModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <h3 class="modal-title" id="modalTitle">WooCommerce Order Specification</h3>
+        <button type="button" class="modal-close-btn" id="btnCloseModal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-notice">
+          <strong>Demo only.</strong> In the final version this goes to your real cart with a server-checked price.
+        </div>
+
+        <table class="modal-summary-table">
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Specification</th>
+              <th style="text-align: right;">Price</th>
+              <th style="text-align: right;">Weight</th>
+            </tr>
+          </thead>
+          <tbody id="modalTableBody"></tbody>
+        </table>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn-secondary" id="btnDismissModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

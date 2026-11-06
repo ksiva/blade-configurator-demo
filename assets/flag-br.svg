@@ -1,0 +1,6 @@
+<svg viewBox="0 0 36 24">
+  <rect width="36" height="24" fill="#009c3b"/>
+  <polygon points="18,3 33,12 18,21 3,12" fill="#ffdf00"/>
+  <circle cx="18" cy="12" r="5.5" fill="#002776"/>
+  <path d="M 13 13.5 Q 18 10 23 11.5" stroke="#ffffff" stroke-width="0.9" fill="none"/>
+</svg>

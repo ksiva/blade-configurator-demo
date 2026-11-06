@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Proposal: The Full Resonant Configurator</title>
+  <style>
+    @font-face {
+      font-family: 'Jost';
+      src: url('assets/fonts/jost-latin-300-normal.woff2') format('woff2');
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Jost';
+      src: url('assets/fonts/jost-latin-400-normal.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Jost';
+      src: url('assets/fonts/jost-latin-500-normal.woff2') format('woff2');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg-stage: #161412;
+      --card-enamel: #f4f2ee;
+      --ink-primary: #191715;
+      --ink-secondary: #58534e;
+      --accent-orange: #e08a2c;
+      --border-hairline: rgba(25, 23, 21, 0.12);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Jost', "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: var(--ink-primary);
+      background: radial-gradient(circle at 50% 20%, #3d352e 0%, #201c18 50%, #161412 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      overflow-y: auto;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .topbar {
+      height: 60px;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(22, 20, 18, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      color: #f4f2ee;
+    }
+
+    .brand-medallion {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .brand-name {
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #f4f2ee;
+    }
+
+    .topbar-link {
+      font-size: 12px;
+      font-weight: 400;
+      color: rgba(244, 242, 238, 0.7);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 150ms ease;
+    }
+
+    .topbar-link:hover {
+      color: var(--accent-orange);
+    }
+
+    .proposal-container {
+      max-width: 780px;
+      margin: 48px auto 80px;
+      padding: 0 20px;
+    }
+
+    .proposal-card {
+      background: var(--card-enamel);
+      border-radius: 18px;
+      padding: 56px 48px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle decorative rings in header */
+    .rings-deco {
+      position: absolute;
+      top: -120px;
+      right: -120px;
+      width: 360px;
+      height: 360px;
+      pointer-events: none;
+      opacity: 0.06;
+    }
+
+    .proposal-header {
+      margin-bottom: 40px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border-hairline);
+      position: relative;
+    }
+
+    .proposal-meta {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent-orange);
+      margin-bottom: 12px;
+    }
+
+    .proposal-title {
+      font-size: 34px;
+      font-weight: 300;
+      letter-spacing: -0.01em;
+      color: var(--ink-primary);
+      line-height: 1.2;
+    }
+
+    .proposal-section {
+      margin-bottom: 38px;
+    }
+
+    .proposal-sec-title {
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: var(--ink-primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .proposal-sec-num {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent-orange);
+      letter-spacing: 0.08em;
+    }
+
+    .proposal-body {
+      font-size: 14.5px;
+      line-height: 1.7;
+      color: var(--ink-secondary);
+      font-weight: 400;
+    }
+
+    .proposal-body p {
+      margin-bottom: 14px;
+    }
+
+    .proposal-body ul {
+      margin: 0 0 16px 20px;
+      padding: 0;
+    }
+
+    .proposal-body li {
+      margin-bottom: 10px;
+    }
+
+    .proposal-body strong {
+      color: var(--ink-primary);
+      font-weight: 500;
+    }
+
+    .proposal-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13.5px;
+    }
+
+    .proposal-table th,
+    .proposal-table td {
+      padding: 12px 14px;
+      border: 1px solid var(--border-hairline);
+      text-align: left;
+    }
+
+    .proposal-table th {
+      background: rgba(25, 23, 21, 0.04);
+      font-weight: 500;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-primary);
+    }
+
+    .proposal-table td.amount {
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      color: var(--ink-primary);
+      white-space: nowrap;
+    }
+
+    .proposal-table tr.total-row {
+      font-weight: 500;
+      background: rgba(224, 138, 44, 0.06);
+    }
+
+    .proposal-table tr.total-row td {
+      color: var(--accent-orange);
+      font-size: 14.5px;
+    }
+
+    @media (max-width: 600px) {
+      .proposal-card {
+        padding: 32px 20px;
+      }
+      .proposal-title {
+        font-size: 26px;
+      }
+      .topbar {
+        padding: 0 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <a href="index.html" class="topbar-brand">
+      <img src="assets/medallion.jpg" alt="Resonant medallion" class="brand-medallion">
+      <span class="brand-name">Resonant</span>
+    </a>
+    <a href="index.html" class="topbar-link">&larr; Back to Configurator</a>
+  </header>
+
+  <!-- Proposal Card -->
+  <main class="proposal-container">
+    <article class="proposal-card">
+
+      <!-- Concentric rings graphic -->
+      <svg class="rings-deco" viewBox="0 0 360 360" aria-hidden="true">
+        <circle cx="180" cy="180" r="40" fill="none" stroke="#191715" stroke-width="1"/>
+        <circle cx="180" cy="180" r="80" fill="none" stroke="#191715" stroke-width="1"/>
+        <circle cx="180" cy="180" r="120" fill="none" stroke="#191715" stroke-width="1"/>
+        <circle cx="180" cy="180" r="160" fill="none" stroke="#191715" stroke-width="1"/>
+      </svg>
+
+      <header class="proposal-header">
+        <div class="proposal-meta">Proposal</div>
+        <h1 class="proposal-title">Proposal: the full Resonant configurator</h1>
+      </header>
+
+      <!-- Section 1 -->
+      <section class="proposal-section">
+        <h2 class="proposal-sec-title">
+          <span class="proposal-sec-num">01.</span>
+          What the demo shows
+        </h2>
+        <div class="proposal-body">
+          <p>
+            Geometry from your Flared.step at true size: blade 151 &times; 258 &times; 6 mm and both half handles. Wood on the blade and Handle 1 is your own photography, aligned to the CAD outline. Handle 2 covers only the same area as Handle 1, and its wood and end cap are built from your photograph: the oak face is taken directly from it, and the padauk grain from the part of the handle that is in focus. Free 360 degree rotation and zoom, including the handle end. The options, prices and weights are working samples of the final system. Only PALIS with the Flared handle is real 3D today. Tested in desktop and phone-sized browser windows, not yet on a physical phone.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 2 -->
+      <section class="proposal-section">
+        <h2 class="proposal-sec-title">
+          <span class="proposal-sec-num">02.</span>
+          Technology
+        </h2>
+        <div class="proposal-body">
+          <p>
+            three.js (WebGL) with physically based materials, in any modern browser, nothing to install. No subscription, no outside service. In the final version: a WordPress plugin with a shortcode, its own admin pages, and WooCommerce cart integration.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 3 -->
+      <section class="proposal-section">
+        <h2 class="proposal-sec-title">
+          <span class="proposal-sec-num">03.</span>
+          Adding new handle designs later (your PDF, section 3)
+        </h2>
+        <div class="proposal-body">
+          <ul>
+            <li>
+              <strong>Do it yourself in WordPress, no coding:</strong> a design is a base wood, up to 6 straight veneer stripes (position, width, wood), an end cap wood and a rim. You pick from your wood library and see the result live. Limit: straight stripes and caps only. Curved inlays, chevrons and burl need the photo route.
+            </li>
+            <li>
+              <strong>Photo route, we prepare it:</strong> you send straight-on photos of a finished handle (both sides and the end) and the Fusion 360 shape. We align them to the shape and add the design to your library.
+              About two hours of work per design. The price per design is agreed once the workflow is set, before the extra package of 10 designs is quoted.
+            </li>
+            <li>
+              <strong>New wood species:</strong> two photos, front and back, as you planned. Each becomes a reusable material for all models.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Section 4 -->
+      <section class="proposal-section">
+        <h2 class="proposal-sec-title">
+          <span class="proposal-sec-num">04.</span>
+          Image export
+        </h2>
+        <div class="proposal-body">
+          <p>
+            PNG in the browser, up to 4096 px, transparent or white background, any configuration and view. No separate render step needed. A separate high-quality render mode can be added later without slowing the normal page.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 5 -->
+      <section class="proposal-section">
+        <h2 class="proposal-sec-title">
+          <span class="proposal-sec-num">05.</span>
+          Price and timeline
+        </h2>
+        <div class="proposal-body">
+          <p>
+            Fixed price, paid by milestone:
+          </p>
+          <table class="proposal-table">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Milestone</th>
+                <th style="width: 50%;">Deliverable</th>
+                <th style="width: 25%;">Payment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1. Asset workflow</td>
+                <td>The asset workflow and the viewer for one blade with all handle shapes.</td>
+                <td class="amount">EUR 700</td>
+              </tr>
+              <tr>
+                <td>2. Models and materials</td>
+                <td>All 4 blades, 10 wood designs, exploded view, finishes, flags and labels.</td>
+                <td class="amount">EUR 1,050</td>
+              </tr>
+              <tr>
+                <td>3. Shop and admin</td>
+                <td>Live price and weight, compatibility rules, admin interface, WooCommerce cart and order data.</td>
+                <td class="amount">EUR 1,050</td>
+              </tr>
+              <tr>
+                <td>4. Acceptance</td>
+                <td>Desktop and mobile testing, a real test order, live handover and documentation.</td>
+                <td class="amount">EUR 700</td>
+              </tr>
+              <tr class="total-row">
+                <td colspan="2">Full project, fixed price</td>
+                <td class="amount">EUR 3,500</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>Timeline: 8 to 10 weeks from the start.</p>
+          <p>
+            <strong>Smaller first step:</strong> if that is above your budget, Phase 1 is EUR 600 fixed, 3 to 4 weeks: your 4 blades and handle shapes from your CAD, Handle 1 and Handle 2, and WooCommerce add to cart with the chosen options. The rest of your PDF can follow item by item at a fixed price, only when you want it.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 6 -->
+      <section class="proposal-section">
+        <h2 class="proposal-sec-title">
+          <span class="proposal-sec-num">06.</span>
+          Included in the fixed price
+        </h2>
+        <div class="proposal-body">
+          <p>
+            4 blade models, 4 handle shapes, 10 initial wood designs, 3 internal structures, all listed options, exploded view, WooCommerce integration and admin tools.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 7 -->
+      <section class="proposal-section">
+        <h2 class="proposal-sec-title">
+          <span class="proposal-sec-num">07.</span>
+          Assumptions
+        </h2>
+        <div class="proposal-body">
+          <p>
+            You supply Fusion 360 files for every blade and handle shape, and two photos per wood species, plus a staging copy of your site. Not included: hosting, licences or paid services (none are planned; any would be confirmed first), new photography.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 8 -->
+      <section class="proposal-section">
+        <h2 class="proposal-sec-title">
+          <span class="proposal-sec-num">08.</span>
+          Acceptance and support
+        </h2>
+        <div class="proposal-body">
+          <p>
+            Testing on desktop and mobile, a real WooCommerce test order, correct pricing, weight and options, and a live demonstration of adding a blade model and a wood design. 30 days of bug fixes after acceptance. All source code, 3D assets and editable files become yours on final payment.
+          </p>
+        </div>
+      </section>
+
+    </article>
+  </main>
+
+</body>
+</html>
